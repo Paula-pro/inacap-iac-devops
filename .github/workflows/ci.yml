@@ -1,0 +1,47 @@
+name: DevOps CI - Validacion y Pruebas IaC
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  validate-and-test:
+    name: Pruebas Automatizadas y Plan IaC
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Verificar formato de código (terraform fmt)
+        working-directory: ./iac
+        run: terraform fmt -check
+
+      - name: Inicializar Terraform
+        working-directory: ./iac
+        run: terraform init -backend=false
+
+      - name: Validar sintaxis y configuración (terraform validate)
+        working-directory: ./iac
+        run: terraform validate
+
+      - name: Ejecutar pruebas automatizadas de seguridad
+        run: |
+          chmod +x tests/test_security.sh
+          ./tests/test_security.sh
+
+      - name: Ejecutar Terraform Plan con credenciales seguras (Secrets)
+        working-directory: ./iac
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          terraform init
+          terraform plan -no-color
